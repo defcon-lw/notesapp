@@ -1,26 +1,36 @@
-from pathlib import Path
+"""
+Authentication module for the notes/text app.
+
+Handles:
+- creating new accounts
+- verifying existing login credentials
+- password hashing
+- interacting with CLI utility functions located in cli_utils.py
+"""
+
 import json
 import sys
-import os
-import time
 import hashlib
-
-path = Path('auth.json')
-
-
-if not path.exists():
-    login = {'username': None, 'password': None}
-else:
-    with path.open('r', encoding='utf-8') as fc:
-        saved_log = json.loads(fc.read())
+import cli_utils as ut
 
 
 def hash_pwd(password: str) -> str:
-    """docstrings"""
+    """
+    Hash a plaintext password using SHA-256.
+
+    This helps avoid storing raw passwords in the auth file.
+    """
     return hashlib.sha256(password.encode()).hexdigest()
 
-def new_name():
-    """docstrings"""
+
+def new_name() -> str:
+    """
+    Prompt the user for a new username.
+
+    Ensures:
+    - username is not empty
+    - username is normalized to lowercase
+    """
     entering = True
     while entering:
         username = input("\nEnter a username: ").strip().lower()
@@ -31,92 +41,150 @@ def new_name():
     return username
 
 
-def new_pwd():
-    """docstrings"""
+def new_pwd() -> str:
+    """
+    Prompt the user for a new password.
+
+    Basic rule:
+    - minimum length of 4 characters
+
+    Returns the *hashed* password.
+    """
     entering = True
     while entering:
-        password = input("\nEnter a password (mininmum 4 char): ").strip().lower()
+        password = (
+            input("\nEnter a password (minimum 4 char): ")
+            .strip()
+            .lower()
+        )
+
         if not password or len(password) < 4:
             print('Password is not secure!')
         else:
             entering = False
+
     return hash_pwd(password)
 
 
-def ex_name():
-    """docstrings"""
+def ex_name(data: dict) -> bool:
+    """
+    Validate an existing username.
+
+    Compares user input with the username stored in `data`.
+
+    Returns:
+        True  -> username matches
+        False -> too many failed attempts
+    """
+    attempts = 4
     entering = True
+
     while entering:
         username = input('\nEnter your username: ').strip().lower()
-        if not username or username != saved_log.get('username', None):
+
+        if not username or username != data.get('username'):
             print('Username not recognized.')
+            attempts -= 1
+
+            if attempts == 0:
+                entering = False
+                return False
+
+            print(f"\n{attempts} attempt(s) left!")
         else:
             entering = False
-    return True
+            return True
 
 
-def ex_pwd():
-    """docstrings"""
+def ex_pwd(data: dict) -> bool:
+    """
+    Validate an existing password.
+
+    Compares hashed user input with stored hashed password.
+
+    Returns:
+        True  -> password matches
+        False -> too many failed attempts
+    """
+    attempts = 4
     entering = True
+
     while entering:
         password = input('\nEnter your password: ').strip().lower()
-        if not password or hash_pwd(password) != saved_log.get('password', None):
+
+        if not password or hash_pwd(password) != data.get('password'):
             print('Password incorrect!')
+            attempts -= 1
+
+            if attempts == 0:
+                entering = False
+                return False
+
+            print(f"\n{attempts} attempt(s) left!")
         else:
             entering = False
-    return True
-
-
-def clear_screen():
-    """Clears the console screen depending on OS."""
-    os.system("cls" if os.name == "nt" else "clear")
-
-def clear_line():
-    """docstrings"""
-    sys.stdout.write('\r\033[K')
-
-def save_info(file):
-    """docstrings"""
-    with path.open('w', encoding='utf-8') as fc:
-        fc.write(json.dumps(file))
-
-def sign_anim(r=2, text='\rSigning in', sec=0.5):
-    """docstrings"""
-    for cycle in range(2):
-        for dots in range(1, 4):
-            sys.stdout.write(f'{text}{"." * dots}')
-            sys.stdout.flush()
-            time.sleep(sec)
+            return True
 
 
 def main():
-    """docstrings"""
-    clear_screen()
+    """
+    Entry point for login/signup workflow.
 
-    if not path.exists():
-        print("=" * 24, "Sign Up", 24 * "=")
+    Behaviour:
+    - If no auth file exists → create new account
+    - If auth file exists → sign in
+    - Uses cli_utils.py for animations, file operations, clearing screen, etc.
+    """
+    ut.clear_screen()
+    fp = ut.filepath()
+
+    # -----------------------------
+    # FIRST-TIME SIGN UP
+    # -----------------------------
+    if not fp.exists():
+        login = {'username': None, 'password': None}
+
+        print("=" * 24, "Sign Up", "=" * 24)
         username = new_name()
         password = new_pwd()
 
         login['username'] = username
         login['password'] = password
 
-        save_info(login)
-        print('\nAccount created successfully.')
+        ut.save_info(login)
+        ut.sign_anim(text='\rSigning up')
+        ut.clear_line()
+        print('\nAccount created successfully.\n')
+        sys.exit()
 
+    # -----------------------------
+    # EXISTING ACCOUNT → SIGN IN
+    # -----------------------------
     else:
-        print("=" * 24, "Sign in", 24 * "=")
-        username_ok = ex_name()
-        password_ok = ex_pwd()
-        if username_ok and password_ok:
-            clear_screen()
-            sign_anim()
-            clear_line()
-            print(
-                f'\nWelcome back, {saved_log.get("username", None).title()}.'
-                )
+        with fp.open('r', encoding='utf-8') as fc:
+            saved_log = json.loads(fc.read())
+
+        print("=" * 24, "Sign in", "=" * 24)
+
+        username_ok = ex_name(saved_log)
+        if not username_ok:
+            ut.create_acct()
+
+        password_ok = ex_pwd(saved_log)
+        if not password_ok:
+            ut.create_acct()
+
+        ut.clear_screen()
+        ut.sign_anim()
+        ut.clear_line()
+
+        print(
+            f'\nWelcome back, '
+            f'{saved_log.get("username", None).title()}.\n'
+        )
 
 
+# Safe entry point
 if __name__ == "__main__":
     try:
         main()
