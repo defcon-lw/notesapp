@@ -19,9 +19,8 @@ def save():
     try:
         with open(users_file, "w") as f:
             json.dump(users, f, indent=4)
-        print("Note saved successfully.")
     except Exception as e:
-        print(f"Error saving note: {e}")
+        print(f"Error saving data: {e}")
 
 def register():
     """docstrings"""
@@ -35,15 +34,15 @@ def register():
         elif username not in users:
             users[username] = {"name": "", 
                                "password": "", 
-                               "notes": [], 
+                               "note_text": [], 
                                "timestamps": []}
         else:
             print('Username already exists!')
             continue
         break
     while True:
-        password = input("Enter a password (must be 8 char long): ").strip().lower()
-        if not password or len(password) < 8:
+        password = input("Enter a password (must be 4 char long): ").strip()
+        if not password or len(password) < 4:
             print('Password is not secure!')
         else:
             users[username]['password'] = password
@@ -75,7 +74,7 @@ def login():
             break
         
     while True:
-        password = input('Enter your password: ').strip().lower()
+        password = input('Enter your password: ').strip()
         if not password or password != users[username]['password']:
             print('Inaccurate password!')
             continue
@@ -87,23 +86,30 @@ def login():
 
 
 def add(username):
-    note = input("Enter your note: ")
-    timestamp = datetime.datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S")
-    users[username]['notes'].append(note)
-    users[username]['timestamps'].append(timestamp)
-    save()
+    while True:
+        note_text = input("Enter your note: ").strip()
+        if not note_text:
+            print("Note cannot be empty.")
+            continue
+        else:
+            timestamp = datetime.datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S")
+            users[username]['note_text'].append(note_text)
+            users[username]['timestamps'].append(timestamp)
+            print("Note added successfully.")
+            save()
+            break
     
 
 def view(username):
-    if not users[username]['notes']:
+    if not users[username]['note_text']:
         print("No notes found.")
     else:
-        for i, (note, timestamp) in enumerate(zip(users[username]['notes'], users[username]['timestamps']), start=1):
-            print(f"{i}. {note} (Added on: {timestamp})")
+        for i, (note_text, timestamp) in enumerate(zip(users[username]['note_text'], users[username]['timestamps']), start=1):
+            print(f"{i}. {note_text} (Added on: {timestamp})")
     
 
 def delete(username):
-    if not users[username]['notes']:
+    if not users[username]['note_text']:
         print("No notes found.")
     else:
         view(username)
@@ -111,8 +117,8 @@ def delete(username):
             input_ = input("Enter the note number to delete: ")
             try:
                 note_index = int(input_) - 1
-                if 0 <= note_index < len(users[username]['notes']):
-                    deleted_note = users[username]['notes'].pop(note_index)
+                if 0 <= note_index < len(users[username]['note_text']):
+                    deleted_note = users[username]['note_text'].pop(note_index)
                     users[username]['timestamps'].pop(note_index)
                     save()
                     print(f"Deleted note: {deleted_note}")
